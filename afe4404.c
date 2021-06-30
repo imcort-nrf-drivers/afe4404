@@ -438,7 +438,9 @@ void afe4404_wakeUp(void)
 
 void afe4404_begin(void)
 {
-
+    //Communication init.
+    iic_init();
+    
 	pinMode(AFE4404_CS, OUTPUT);
 	
 	afe4404_wakeUp();
@@ -460,4 +462,47 @@ int32_t afe4404_readADC32(uint8_t led_address)
 int16_t afe4404_readADC16(uint8_t led_address)
 {
     return afe4404_readRegister16(LED1VAL);
+}
+
+float AFEget_pd_current(uint8_t reg, int32_t val)
+{ //micro amps
+
+	//int32_t val = AFE_Reg_Read(reg);
+	float ADC_voltage;
+	uint8_t gain_res_val;
+
+	ADC_voltage = (float)val * (2.4f / 65536.0f);
+
+	switch (reg)
+	{
+	case LED1VAL:
+	case ALED1VAL:
+		gain_res_val = TIA_GAIN_PHASE1;
+		break;
+	case LED2VAL:
+	case LED3VAL:
+		gain_res_val = TIA_GAIN_PHASE2;
+		break;
+	}
+	switch (gain_res_val)
+	{
+	case GAIN_RES_500K:
+		return ADC_voltage / (0.5f * 2.0f);
+	case GAIN_RES_250K:
+		return ADC_voltage / (0.25f * 2.0f);
+	case GAIN_RES_100K:
+		return ADC_voltage / (0.1f * 2.0f);
+	case GAIN_RES_50K:
+		return ADC_voltage / (0.05f * 2.0f);
+	case GAIN_RES_25K:
+		return ADC_voltage / (0.025f * 2.0f);
+	case GAIN_RES_10K:
+		return ADC_voltage / (0.01f * 2.0f);
+	case GAIN_RES_1M:
+		return ADC_voltage / (1.0f * 2.0f);
+	case GAIN_RES_2M:
+		return ADC_voltage / (2.0f * 2.0f);
+	}
+
+	return 0.0f;
 }
