@@ -7,7 +7,6 @@
  */
  
 #include "afe4404.h"
-#include "transfer_handler.h"
 
 #define AFE4404_I2C_ADDR 0x58
 
@@ -141,25 +140,6 @@
   *         8..15                |    Do not use  |      Do not use            *
   *****************************************************************************/
 
-//LED1 Output Value
-#define LED1VAL           0x2C /**< LED1 Output code in twos complement      */
-
-//LED2 Output Value
-#define LED2VAL           0x2A /**< LED2 Output code in twos complement      */
-
-//LED3 or Ambient 2 Value
-#define LED3VAL           0x2B  /**< LED3 / Ambient 2 value in twos complement*/
-
-//Ambient 1 Value
-#define ALED1VAL          0x2D  /**< Ambient 1 value in twos complement       */
-
-//LED1-Ambient 1 Value
-#define LED1_ALED1VAL     0x2F  /**< LED1-ambient1 in twos complement         */
-
-//LED2-Ambient 2 Value
-#define LED2_ALED2VAL     0x2E  /**< LED2-ambient2 in twos complement         */
-
-
 //Diagnostics Flag
 #define PD_SHORT_FLAG     0x30  /**< 0: No short across PD 1: Short across PD */
 
@@ -247,6 +227,8 @@
  
 uint8_t TIA_GAIN_PHASE1 = 0;
 uint8_t TIA_GAIN_PHASE2 = 0;
+
+uint32_t dac_val = 0;
  
 static void afe4404_writeRegister(uint8_t reg_address, uint32_t data)
 {
@@ -298,7 +280,7 @@ static int16_t afe4404_readRegister16(uint8_t reg_address)
 }
 
 //Not common used functions. Prepare for begin.
-void afe4404_setCurrents(uint8_t led1_current, uint8_t led2_current, uint8_t led3_current)
+void afe4404_setLEDCurrent(uint8_t led1_current, uint8_t led2_current, uint8_t led3_current)
 {
 	uint32_t val;
 	val |= (led1_current << 0);	 // LED 1 addrss space -> 0-5 bits
@@ -315,41 +297,49 @@ void afe4404_setTiaGain(uint8_t led, uint16_t gain_k)
 	{
 		val |= (2 << 3);
 		val |= (GAIN_RES_2M);
+        Debug("Tia Gain Set: LED%d 2M", led);
 	} 
 	else if (gain_k >= 1000)
 	{
 		val |= (2 << 3);
 		val |= (GAIN_RES_1M);
+        Debug("Tia Gain Set: LED%d 1M", led);
 	} 
 	else if (gain_k >= 500)
 	{
 		val |= (2 << 3);
 		val |= (GAIN_RES_500K);
+        Debug("Tia Gain Set: LED%d 500K", led);
 	} 
 	else if (gain_k >= 250)
 	{
 		val |= (2 << 3);
 		val |= (GAIN_RES_250K);
+        Debug("Tia Gain Set: LED%d 250K", led);
 	} 
 	else if (gain_k >= 100)
 	{
 		val |= (2 << 3);
 		val |= (GAIN_RES_100K);
+        Debug("Tia Gain Set: LED%d 100K", led);
 	} 
 	else if (gain_k >= 50)
 	{
 		val |= (2 << 3);
 		val |= (GAIN_RES_50K);
+        Debug("Tia Gain Set: LED%d 50K", led);
 	} 
 	else if (gain_k >= 25)
 	{
 		val |= (2 << 3);
 		val |= (GAIN_RES_25K);
+        Debug("Tia Gain Set: LED%d 25K", led);
 	} 
 	else
 	{
 		val |= (2 << 3);
 		val |= (GAIN_RES_10K);
+        Debug("Tia Gain Set: LED%d 10K", led);
 	}
 		
 	if(led == 1)
@@ -366,8 +356,152 @@ void afe4404_setTiaGain(uint8_t led, uint16_t gain_k)
 
 }
 
+void afe4404_setReverseCurrent(uint8_t led, int16_t nA)
+{
+	uint32_t reg_val = 0;
+	if(nA >= 7000){
+		reg_val = 15;
+	} else if (nA >= 6530)
+	{
+		reg_val = 14;
+	} else if (nA >= 6070)
+	{
+		reg_val = 13;
+	} else if (nA >= 5600)
+	{
+		reg_val = 12;
+	}else if (nA >= 5130)
+	{
+		reg_val = 11;
+	}else if (nA >= 4670)
+	{
+		reg_val = 10;
+	}else if (nA >= 4200)
+	{
+		reg_val = 9;
+	}else if (nA >= 3730)
+	{
+		reg_val = 8;
+	}else if (nA >= 3270)
+	{
+		reg_val = 7;
+	}else if (nA >= 2800)
+	{
+		reg_val = 6;
+	}else if (nA >= 2330)
+	{
+		reg_val = 5;
+	}else if (nA >= 1870)
+	{
+		reg_val = 4;
+	}else if (nA >= 1400)
+	{
+		reg_val = 3;
+	}else if (nA >= 930)
+	{
+		reg_val = 2;
+	}else if (nA >= 470)
+	{
+		reg_val = 1;
+	}else if (nA >= 0)
+	{
+		reg_val = 0;
+	}else if (nA >= -470)
+	{
+		reg_val = 1;
+		reg_val |= 0x10;
+	}else if (nA >= -930)
+	{
+		reg_val = 2;
+		reg_val |= 0x10;
+	}else if (nA >= -1400)
+	{
+		reg_val = 3;
+		reg_val |= 0x10;
+	}else if (nA >= -1870)
+	{
+		reg_val = 4;
+		reg_val |= 0x10;
+	}else if (nA >= -2330)
+	{
+		reg_val = 5;
+		reg_val |= 0x10;
+	}else if (nA >= -2800)
+	{
+		reg_val = 6;
+		reg_val |= 0x10;
+	}else if (nA >= -3270)
+	{
+		reg_val = 7;
+		reg_val |= 0x10;
+	}else if (nA >= -3730)
+	{
+		reg_val = 8;
+		reg_val |= 0x10;
+	}else if (nA >= -4200)
+	{
+		reg_val = 9;
+		reg_val |= 0x10;
+	}else if (nA >= -4670)
+	{
+		reg_val = 10;
+		reg_val |= 0x10;
+	}else if (nA >= -5130)
+	{
+		reg_val = 11;
+		reg_val |= 0x10;
+	}else if (nA >= -5600)
+	{
+		reg_val = 12;
+		reg_val |= 0x10;
+	}else if (nA >= -6070)
+	{
+		reg_val = 13;
+		reg_val |= 0x10;
+	}else if (nA >= -6530)
+	{
+		reg_val = 14;
+		reg_val |= 0x10;
+	}else
+	{
+		reg_val = 15;
+		reg_val |= 0x10;
+	}
+	
+	//NRF_LOG_INFO("%d",reg_val&0xf);
+	
+	if(led == 3){
+		dac_val &= (~0x1f);
+		dac_val |= reg_val;
+	} else if(led == 2){
+		dac_val &= (~(0x1f<<15));
+		dac_val |= reg_val<<15;
+	} else if(led == 1){
+		dac_val &= (~(0x1f<<5));
+		dac_val |= reg_val<<5;
+	} else if(led == 0){
+		dac_val &= (~(0x1f<<10));
+		dac_val |= reg_val<<10;
+	}
+	
+	afe4404_writeRegister(DAC_SETTING, dac_val);
+    Debug("LED%d DAC_SETTING %8x", led, dac_val);
+	
+//	reg_val |= (0 << POL_OFFDAC_LED2);
+//	reg_val |= (0 << I_OFFDAC_LED2);
+//	reg_val |= (0 << POL_OFFDAC_AMB1);
+//	reg_val |= (0 << I_OFFDAC_AMB1);
+//	reg_val |= (0 << POL_OFFDAC_LED1);
+//	reg_val |= (0 << I_OFFDAC_LED1);
+//	reg_val |= (0 << POL_OFFDAC_LED3);
+//	reg_val |= (0 << I_OFFDAC_LED3);
+	
+}
+
 void afe4404_wakeUp(void)
 {
+    iic_init();
+    
     digitalWrite(AFE4404_CS, HIGH);
 	
 	afe4404_writeRegister(DIAGNOSIS, 0x08);	   //Reset Page 35
@@ -387,7 +521,7 @@ void afe4404_wakeUp(void)
 	afe4404_writeRegister(LED2_CONV_ST, 5608);
 	afe4404_writeRegister(LED2_CONV_END, 6067);
 
-	//Set 0 if LED3 is not used. LED3/ALED2
+	//Set 0 if LED3 is not used. LED3/Ambient2
 	afe4404_writeRegister(LED3LEDSTC, 0);
 	afe4404_writeRegister(LED3LEDENDC, 0);
 
@@ -425,14 +559,14 @@ void afe4404_wakeUp(void)
 	//	clock div 0->4Mhz, 1=2=3 -> do not use, 4-> 2Mhz, 5->1Mhz, 6->0.5Mhz, 7-> 0.25Mhz
 	afe4404_writeRegister(CLKDIV_PRF, 0); //CLKDIV Page62
 
-	afe4404_setCurrents(30, 5, 0); // parm1 -> LED1, | parm2 -> LED2, | parm3 -> LED3,    each is 6 bit resolution (0-63)
+	afe4404_setLEDCurrent(30, 5, 0); // parm1 -> LED1, | parm2 -> LED2, | parm3 -> LED3,    each is 6 bit resolution (0-63)
 								 //For epidermal: IR,Red,Null
 	
 	afe4404_setTiaGain(1, 50);  //IR
 	afe4404_setTiaGain(2, 10); //Red
 	
-	//DAC_settings(1, 470);
-	//DAC_settings(2, -5600); //Red
+	afe4404_setReverseCurrent(1, 470);
+	afe4404_setReverseCurrent(2, -5600); //Red
 
 }
 
@@ -456,15 +590,15 @@ void afe4404_sleep(void)
 
 int32_t afe4404_readADC32(uint8_t led_address)
 {
-	return afe4404_readRegister(LED1VAL);
+	return afe4404_readRegister(led_address);
 }
 
 int16_t afe4404_readADC16(uint8_t led_address)
 {
-    return afe4404_readRegister16(LED1VAL);
+    return afe4404_readRegister16(led_address);
 }
 
-float AFEget_pd_current(uint8_t reg, int32_t val)
+float afe4404_convertCurrent(uint8_t reg, int32_t val)
 { //micro amps
 
 	//int32_t val = AFE_Reg_Read(reg);
