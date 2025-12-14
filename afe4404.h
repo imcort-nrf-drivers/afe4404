@@ -22,18 +22,24 @@
 #define LED2_ALED2VAL     0x2E  /**< LED2-ambient2 in twos complement         */
 
 
+#define GAIN_RES_500K    0
+#define GAIN_RES_250K    1
+#define GAIN_RES_100K    2
+#define GAIN_RES_50K     3
+#define GAIN_RES_25K   	 4
+#define GAIN_RES_10K   	 5
+#define GAIN_RES_1M  	   6
+#define GAIN_RES_2M   	 7
+
 void afe4404_begin(void);
 void afe4404_sleep(void);
 
 void afe4404_setLEDCurrent(uint8_t led1_current, uint8_t led2_current, uint8_t led3_current);
-void afe4404_setTiaGain(uint8_t led, uint16_t gain_k);
+void afe4404_setTiaGain(uint8_t led, uint8_t gain_index);
+void afe4404_setReverseCurrent(uint8_t led, uint8_t polarity, uint8_t magnitude);
 
 int32_t afe4404_readADC32(uint8_t led_address);
-int16_t afe4404_readADC16(uint8_t led_address);
 
-
-float afe4404_convertCurrent(uint8_t reg, int32_t val);
-
-
+float afe4404_readCurrent(uint8_t reg);
 
 #endif
