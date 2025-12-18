@@ -434,7 +434,7 @@ float afe4404_readCurrent(uint8_t reg)
 	float ADC_voltage;
 	uint8_t gain_res_val;
 
-	ADC_voltage = (float)val * (2.4f / 65536.0f);
+	ADC_voltage = (float)val * 1.2f / 2097152.0f; // V
 
 	switch (reg)
 	{
