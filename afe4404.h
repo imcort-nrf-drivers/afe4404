@@ -28,13 +28,13 @@
 #define GAIN_RES_50K     3
 #define GAIN_RES_25K   	 4
 #define GAIN_RES_10K   	 5
-#define GAIN_RES_1M  	   6
+#define GAIN_RES_1M  	 6
 #define GAIN_RES_2M   	 7
 
 void afe4404_begin(void);
 void afe4404_sleep(void);
 
-void afe4404_setLEDCurrent(uint8_t led1_current, uint8_t led2_current, uint8_t led3_current);
+void afe4404_setLEDCurrent(uint8_t led, uint8_t current);
 void afe4404_setTiaGain(uint8_t led, uint8_t gain_index);
 void afe4404_setReverseCurrent(uint8_t led, uint8_t polarity, uint8_t magnitude);
 

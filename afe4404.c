@@ -271,12 +271,27 @@ static int16_t afe4404_readRegister16(uint8_t reg_address)
 }
 
 //Not common used functions. Prepare for begin.
-void afe4404_setLEDCurrent(uint8_t led1_current, uint8_t led2_current, uint8_t led3_current)
+void afe4404_setLEDCurrent(uint8_t led, uint8_t current)
 {
-	uint32_t val = 0;
-	val |= (led1_current << 0);	 // LED 1 addrss space -> 0-5 bits
-	val |= (led2_current << 6);	 // LED 2 addrss space -> 6-11 bits
-	val |= (led3_current << 12); // LED 3 addrss space -> 12-17 bits
+	static uint32_t val = 0;
+    
+    if (current > 63) current = 63;
+    
+    switch (led)
+    {
+        case 1:
+            val |= (current << 0);	 // LED 1 addrss space -> 0-5 bits
+            break;
+        case 2:
+            val |= (current << 6);	 // LED 2 addrss space -> 6-11 bits
+            break;
+        case 3:
+            val |= (current << 12); // LED 3 addrss space -> 12-17 bits
+            break;
+        default:
+            return;
+    }
+
 	afe4404_writeRegister(LED_CONFIG, val);
 }
 
@@ -393,10 +408,11 @@ void afe4404_wakeUp(void)
 	//	clock div 0->4Mhz, 1=2=3 -> do not use, 4-> 2Mhz, 5->1Mhz, 6->0.5Mhz, 7-> 0.25Mhz
 	afe4404_writeRegister(CLKDIV_PRF, 0); //CLKDIV Page62
 
-	afe4404_setLEDCurrent(5, 0, 30); // parm1 -> LED1, | parm2 -> LED2, | parm3 -> LED3,    each is 6 bit resolution (0-63)
-								 //For epidermal: Red,IR,Null Confirmed
+    afe4404_setLEDCurrent(1, 5);
+    afe4404_setLEDCurrent(2, 0);
+    afe4404_setLEDCurrent(3, 30);
 	
-	afe4404_setTiaGain(1, GAIN_RES_100K);  //
+	afe4404_setTiaGain(1, GAIN_RES_100K);
 	afe4404_setTiaGain(2, GAIN_RES_10K); //IR
 	
 	afe4404_setReverseCurrent(1, 1, 10);//Red
