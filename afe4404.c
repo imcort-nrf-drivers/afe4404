@@ -277,15 +277,20 @@ void afe4404_setLEDCurrent(uint8_t led, uint8_t current)
     
     if (current > 63) current = 63;
     
+    Debug("LED Current Set: LED%d current: %d", led, current);
+    
     switch (led)
     {
         case 1:
+            val &= ~(0x3F << 0);
             val |= (current << 0);	 // LED 1 addrss space -> 0-5 bits
             break;
         case 2:
+            val &= ~(0x3F << 6);
             val |= (current << 6);	 // LED 2 addrss space -> 6-11 bits
             break;
         case 3:
+            val &= ~(0x3F << 12);
             val |= (current << 12); // LED 3 addrss space -> 12-17 bits
             break;
         default:
