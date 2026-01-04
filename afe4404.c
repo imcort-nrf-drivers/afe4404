@@ -215,12 +215,50 @@
  *       14        |       6.53          |       �6.53          *
  *       15        |          7          |          �7          *
  ****************************************************************/
+
+#define FDS_FILE_AFE4404    0x0008
+#define FDS_KEY_AFE4404_CFG 0x0001
+
+typedef struct {
+    uint8_t gain;
+    uint8_t offset_pol;
+    uint8_t offset_mag;
+    uint8_t brightness;
+} afe4404_led_cfg_t;
+
+// 整个芯片的配置
+typedef struct {
+    afe4404_led_cfg_t leds[2]; // 索引 0:LED1, 1:LED2
+    bool ambient_cancel;
+} afe4404_persist_config_t;
  
 uint8_t TIA_GAIN_PHASE1 = 0;
 uint8_t TIA_GAIN_PHASE2 = 0;
 
 uint32_t dac_val = 0;
- 
+uint32_t brightness_val = 0;
+
+// 全局变量，保存当前内存中的配置
+static afe4404_persist_config_t g_afe_cfg = {
+    .leds = {
+        // LED 1 的默认值
+        {
+            .gain = GAIN_RES_500K,
+            .offset_pol = 0, 
+            .offset_mag = 0, 
+            .brightness = 5
+        },
+        // LED 2 的默认值
+        {
+            .gain = GAIN_RES_500K, 
+            .offset_pol = 0, 
+            .offset_mag = 0, 
+            .brightness = 5
+        }
+    },
+    .ambient_cancel = false
+};
+
 static void afe4404_writeRegister(uint8_t reg_address, uint32_t data)
 {
 	uint8_t configData[4];
@@ -273,84 +311,85 @@ static int16_t afe4404_readRegister16(uint8_t reg_address)
 //Not common used functions. Prepare for begin.
 void afe4404_setLEDCurrent(uint8_t led, uint8_t current)
 {
-	static uint32_t val = 0;
     
-    if (current > 63) current = 63;
-    
-    Debug("LED Current Set: LED%d current: %d", led, current);
-    
+    if (current > 63) return;
+
     switch (led)
     {
         case 1:
-            val &= ~(0x3F << 0);
-            val |= (current << 0);	 // LED 1 addrss space -> 0-5 bits
+            brightness_val &= ~(0x3Fu << 0);
+            brightness_val |= ((uint32_t)current << 0);	 // LED 1 addrss space -> 0-5 bits
+            Debug("LED Current Set: LED%d current: %d", led, current);
             break;
         case 2:
-            val &= ~(0x3F << 6);
-            val |= (current << 6);	 // LED 2 addrss space -> 6-11 bits
-            break;
-        case 3:
-            val &= ~(0x3F << 12);
-            val |= (current << 12); // LED 3 addrss space -> 12-17 bits
+//            val &= ~(0x3F << 6);
+//            val |= (current << 6);	 // LED 2 addrss space -> 6-11 bits
+//            break;
+//        case 3:
+            brightness_val &= ~(0x3Fu << 12);
+            brightness_val |= ((uint32_t)current << 12); // LED 3 addrss space -> 12-17 bits
+            Debug("LED Current Set: LED%d current: %d", led, current);
             break;
         default:
+            Debug("LED Current Set: LED%d Error", led);
             return;
     }
 
-	afe4404_writeRegister(LED_CONFIG, val);
+	afe4404_writeRegister(LED_CONFIG, brightness_val);
 }
 
 void afe4404_setTiaGain(uint8_t led, uint8_t gain_index)
 {
-    uint16_t val = 0;
+    uint32_t val = 0;
     
-    if (gain_index > 7) gain_index = 0;
+    if (gain_index > 7) return;
 
     val |= (2 << 3); 
     val |= gain_index;
 
-    Debug("Tia Gain Set: LED%d Index: %d", led, gain_index);
-
-    if(led == 1)
+    if(led == 1) //Red
     {
         TIA_GAIN_PHASE1 = val & 7;
         afe4404_writeRegister(TIA_GAINS1, val);
+        Debug("Tia Gain Set: LED%d Index: %d", led, gain_index);
+        return;
     }
-    else if(led == 2)
+    else if(led == 2) //IR
     {
         val |= (1 << 15);
         TIA_GAIN_PHASE2 = val & 7;
         afe4404_writeRegister(TIA_GAINS2, val);
+        Debug("Tia Gain Set: LED%d Index: %d", led, gain_index);
+        return;
     }
+    
+    Debug("Tia Gain Set: LED%d Error", led);
+    return;
 }
 
 void afe4404_setReverseCurrent(uint8_t led, uint8_t polarity, uint8_t magnitude)
 {
-    if (magnitude > 15) magnitude = 15;
-    if (polarity > 1) polarity = 1;
+    if (magnitude > 15 || polarity > 1) return;
 
     uint32_t reg_val = magnitude;
-    
-    if (polarity == 1) {
-        reg_val |= 0x10; 
-    }
+    if (polarity == 1) reg_val |= 0x10; // Bit 4 is polarity
 
-    if(led == 3){ // LED3: bits 0-4
-        dac_val &= (~0x1f);
-        dac_val |= reg_val;
-    } else if(led == 2){ // LED2: bits 15-19
-        dac_val &= (~(0x1f << 15));
-        dac_val |= (reg_val << 15);
-    } else if(led == 1){ // LED1: bits 5-9
-        dac_val &= (~(0x1f << 5));
-        dac_val |= (reg_val << 5);
-    } else if(led == 0){ // Ambient1: bits 10-14
-        dac_val &= (~(0x1f << 10));
-        dac_val |= (reg_val << 10);
+    if(led == 1) { 
+        // Red LED
+        dac_val &= ~((0x1Fu << 5) | (0x1Fu << 10)); // Clear LED1 and Amb1 slots
+        dac_val |= (reg_val << 5);                  // Set LED1
+        dac_val |= (reg_val << 10);                 // Set Amb1
     }
+    else if(led == 2) { 
+        // IR LED (Assuming hardware uses LED2 or LED3)
+        dac_val &= ~((0x1Fu << 0) | (0x1Fu << 15)); // Clear LED3 and LED2 slots
+        dac_val |= (reg_val << 0);                  // Set LED3
+        dac_val |= (reg_val << 15);                 // Set LED2
+    } 
 
+    // ALWAYS write to the register
     afe4404_writeRegister(DAC_SETTING, dac_val);
-    Debug("Offset DAC Set: LED%d, Pol:%d, Mag:%d, Reg:0x%X", led, polarity, magnitude, dac_val);
+    Debug("Offset DAC Set: LED%d, Val: 0x%06X", led, dac_val);
 }
 
 void afe4404_wakeUp(void)
@@ -364,7 +403,8 @@ void afe4404_wakeUp(void)
 
 	//Phase Page 26
 	afe4404_writeRegister(PRPCT, 7812); //100Hz 39999 512Hz 7812
-
+    
+    //TIA Phase 2
 	//LED2 Not used ambient
 	afe4404_writeRegister(LED2_ST, 0);
 	afe4404_writeRegister(LED2_END, 0);
@@ -386,6 +426,7 @@ void afe4404_wakeUp(void)
 	afe4404_writeRegister(LED3_CONV_ST, 6077);
 	afe4404_writeRegister(LED3_CONV_END, 6536);
 
+    //TIA Phase 1
 	//LED1 Red
 	afe4404_writeRegister(LED1_ST, 800);
 	afe4404_writeRegister(LED1_END, 1198);
@@ -413,16 +454,18 @@ void afe4404_wakeUp(void)
 	//	clock div 0->4Mhz, 1=2=3 -> do not use, 4-> 2Mhz, 5->1Mhz, 6->0.5Mhz, 7-> 0.25Mhz
 	afe4404_writeRegister(CLKDIV_PRF, 0); //CLKDIV Page62
 
-    afe4404_setLEDCurrent(1, 5);
-    afe4404_setLEDCurrent(2, 0);
-    afe4404_setLEDCurrent(3, 30);
+    afe4404_setLEDCurrent(1, g_afe_cfg.leds[0].brightness);     //Red
+    afe4404_setLEDCurrent(2, g_afe_cfg.leds[1].brightness);     //IR
 	
-	afe4404_setTiaGain(1, GAIN_RES_100K);
-	afe4404_setTiaGain(2, GAIN_RES_10K); //IR
-	
-	afe4404_setReverseCurrent(1, 1, 10);//Red
-	afe4404_setReverseCurrent(2, 0, 10);
+	afe4404_setTiaGain(1, g_afe_cfg.leds[0].gain);              //Red
+    afe4404_setTiaGain(2, g_afe_cfg.leds[1].gain);              //IR
+    
+    NRF_LOG_FLUSH();
 
+    afe4404_setReverseCurrent(1, g_afe_cfg.leds[0].offset_pol, g_afe_cfg.leds[0].offset_mag);
+    afe4404_setReverseCurrent(2, g_afe_cfg.leds[1].offset_pol, g_afe_cfg.leds[1].offset_mag);
+    
+    Debug("AFE4404: 2 LEDs Flash Config Applied.");
 }
 
 void afe4404_begin(void)
