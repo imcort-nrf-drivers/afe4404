@@ -41,5 +41,5 @@ void afe4404_setReverseCurrent(uint8_t led, uint8_t polarity, uint8_t magnitude)
 int32_t afe4404_readADC32(uint8_t led_address);
 
 float afe4404_readCurrent(uint8_t reg);
-
+void afe4404_save_to_fds(void);
 #endif
