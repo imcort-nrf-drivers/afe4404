@@ -231,7 +231,7 @@ typedef struct {
 // 整个芯片的配置
 typedef struct {
     afe4404_led_cfg_t leds[2]; // 索引 0:LED1, 1:LED2
-    bool ambient_cancel;
+    bool ambient_cancel[2];
 } afe4404_persist_config_t;
  
 uint8_t TIA_GAIN_PHASE1 = 0;
@@ -258,7 +258,7 @@ static __ALIGN(4) afe4404_persist_config_t g_afe_cfg = {
             .brightness = 5
         }
     },
-    .ambient_cancel = false
+    .ambient_cancel = {true, true}
 };
 
 void afe4404_save_to_fds(void)
@@ -376,6 +376,22 @@ void afe4404_setReverseCurrent(uint8_t led, uint8_t polarity, uint8_t magnitude)
     g_afe_cfg.leds[idx].offset_mag = magnitude;
     
     Debug("LED %d Offset saved to Flash: Pol %d, Mag %d", led, polarity, magnitude);
+}
+
+void afe4404_setAmbient(uint8_t led, bool ambient)
+{
+    if (led < 1 || led > 2) return;
+
+    uint8_t idx = led - 1;
+
+    if(led == 1) { 
+        g_afe_cfg.ambient_cancel[0] = ambient;
+    }
+    else { 
+        g_afe_cfg.ambient_cancel[1] = ambient;
+    } 
+
+    Debug("LED %d Ambient %d", led, ambient);
 }
 
 void afe4404_wakeUp(void)
@@ -519,4 +535,64 @@ float afe4404_readCurrent(uint8_t reg)
 	}
 
 	return 0.0f;
+}
+
+float afe4404_readRed(void)
+{
+    int32_t val = afe4404_readADC32(LED1VAL) - (g_afe_cfg.ambient_cancel[0] ? afe4404_readADC32(ALED1VAL) : 0);
+    uint8_t gain_res_val = TIA_GAIN_PHASE1;
+    
+    float ADC_voltage = (float)val * 1.2f / 2097152.0f;
+    
+    switch (gain_res_val)
+	{
+        case GAIN_RES_500K:
+            return ADC_voltage / (0.5f * 2.0f);
+        case GAIN_RES_250K:
+            return ADC_voltage / (0.25f * 2.0f);
+        case GAIN_RES_100K:
+            return ADC_voltage / (0.1f * 2.0f);
+        case GAIN_RES_50K:
+            return ADC_voltage / (0.05f * 2.0f);
+        case GAIN_RES_25K:
+            return ADC_voltage / (0.025f * 2.0f);
+        case GAIN_RES_10K:
+            return ADC_voltage / (0.01f * 2.0f);
+        case GAIN_RES_1M:
+            return ADC_voltage / (1.0f * 2.0f);
+        case GAIN_RES_2M:
+            return ADC_voltage / (2.0f * 2.0f);
+	}
+    
+    return 0.0f;
+}
+
+float afe4404_readIR(void)
+{
+    int32_t val = afe4404_readADC32(LED3VAL) - (g_afe_cfg.ambient_cancel[1] ? afe4404_readADC32(LED2VAL) : 0);
+    uint8_t gain_res_val = TIA_GAIN_PHASE2;
+    
+    float ADC_voltage = (float)val * 1.2f / 2097152.0f;
+    
+    switch (gain_res_val)
+	{
+        case GAIN_RES_500K:
+            return ADC_voltage / (0.5f * 2.0f);
+        case GAIN_RES_250K:
+            return ADC_voltage / (0.25f * 2.0f);
+        case GAIN_RES_100K:
+            return ADC_voltage / (0.1f * 2.0f);
+        case GAIN_RES_50K:
+            return ADC_voltage / (0.05f * 2.0f);
+        case GAIN_RES_25K:
+            return ADC_voltage / (0.025f * 2.0f);
+        case GAIN_RES_10K:
+            return ADC_voltage / (0.01f * 2.0f);
+        case GAIN_RES_1M:
+            return ADC_voltage / (1.0f * 2.0f);
+        case GAIN_RES_2M:
+            return ADC_voltage / (2.0f * 2.0f);
+	}
+    
+    return 0.0f;
 }

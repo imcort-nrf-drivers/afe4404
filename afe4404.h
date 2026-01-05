@@ -37,9 +37,13 @@ void afe4404_sleep(void);
 void afe4404_setLEDCurrent(uint8_t led, uint8_t current);
 void afe4404_setTiaGain(uint8_t led, uint8_t gain_index);
 void afe4404_setReverseCurrent(uint8_t led, uint8_t polarity, uint8_t magnitude);
+void afe4404_setAmbient(uint8_t led, bool ambient);
 
 int32_t afe4404_readADC32(uint8_t led_address);
 
 float afe4404_readCurrent(uint8_t reg);
 void afe4404_save_to_fds(void);
+
+float afe4404_readRed(void);
+float afe4404_readIR(void);
 #endif
