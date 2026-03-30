@@ -239,6 +239,7 @@ uint8_t TIA_GAIN_PHASE2 = 0;
 
 uint32_t dac_val = 0;
 uint32_t brightness_val = 0;
+uint8_t tia_cf_val = 6; //0-7
 
 // 全局变量，保存当前内存中的配置
 static __ALIGN(4) afe4404_persist_config_t g_afe_cfg = {
@@ -327,12 +328,17 @@ void afe4404_setLEDCurrent(uint8_t led, uint8_t current)
 
 }
 
+void afe4404_setTiaCf(uint8_t cf)
+{
+    tia_cf_val = cf;
+}
+
 void afe4404_setTiaGain(uint8_t led, uint8_t gain_index)
 {
     if (led < 1 || led > 2 || gain_index > 7) return;
 
     uint8_t idx = led - 1;
-    uint32_t val = (5 << 3) | gain_index;
+    uint32_t val = (tia_cf_val << 3) | gain_index;
 
     if(led == 1) {
         TIA_GAIN_PHASE1 = gain_index;
