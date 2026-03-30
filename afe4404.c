@@ -332,7 +332,7 @@ void afe4404_setTiaGain(uint8_t led, uint8_t gain_index)
     if (led < 1 || led > 2 || gain_index > 7) return;
 
     uint8_t idx = led - 1;
-    uint32_t val = (2 << 3) | gain_index;
+    uint32_t val = (5 << 3) | gain_index;
 
     if(led == 1) {
         TIA_GAIN_PHASE1 = gain_index;
@@ -449,7 +449,7 @@ void afe4404_wakeUp(void)
 
 	//PDNCYCLE
 	afe4404_writeRegister(PDNCYCLESTC, 7675);
-	afe4404_writeRegister(PDNCYCLEENDC, 7811);
+	afe4404_writeRegister(PDNCYCLEENDC, 7700);
 
 	afe4404_writeRegister(TIM_NUMAV, 0x100 | 3); //ADC Average num 0-15 Page50
 
@@ -539,7 +539,7 @@ float afe4404_readCurrent(uint8_t reg)
 
 float afe4404_readRed(void)
 {
-    int32_t val = afe4404_readADC32(LED1VAL) - (g_afe_cfg.ambient_cancel[0] ? afe4404_readADC32(ALED1VAL) : 0);
+    int32_t val = g_afe_cfg.ambient_cancel[0] ? afe4404_readADC32(LED1_ALED1VAL) : -afe4404_readADC32(LED1VAL);
     uint8_t gain_res_val = TIA_GAIN_PHASE1;
     
     float ADC_voltage = (float)val * 1.2f / 2097152.0f;
@@ -569,7 +569,7 @@ float afe4404_readRed(void)
 
 float afe4404_readIR(void)
 {
-    int32_t val = afe4404_readADC32(LED3VAL) - (g_afe_cfg.ambient_cancel[1] ? afe4404_readADC32(LED2VAL) : 0);
+    int32_t val = g_afe_cfg.ambient_cancel[1] ? afe4404_readADC32(LED2_ALED2VAL) : -afe4404_readADC32(LED3VAL);
     uint8_t gain_res_val = TIA_GAIN_PHASE2;
     
     float ADC_voltage = (float)val * 1.2f / 2097152.0f;
